@@ -1,8 +1,8 @@
 ﻿<!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>移动盲肠区管理（中部）</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabulator/5.4.4/css/tabulator_mobile.min.css">
     <style>
@@ -21,36 +21,43 @@
             margin: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #f5f5f5;
+            font-size: 16px;
+            line-height: 1.6;
         }
 
         #mapContainer {
             width: 100%;
-            height: 65vh;
+            height: calc(100vh - 60px);
             position: relative;
         }
 
         .control-bar {
             position: fixed;
             bottom: 0;
+            left: 0;
             width: 100%;
             padding: 10px;
             background: white;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 5px;
+            display: flex;
+            gap: 8px;
             box-shadow: 0 -2px 12px rgba(0,0,0,0.1);
         }
 
         .mobile-btn {
-            padding: 14px;
+            flex: 1;
+            padding: 16px;
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
             background: var(--primary);
             color: white;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            font-size: 16px;
+            min-height: 48px;
+            touch-action: manipulation;
+            transition: filter 0.2s;
+        }
+
+        .mobile-btn:active {
+            filter: brightness(0.9);
         }
 
         .modal {
@@ -62,36 +69,77 @@
             background: rgba(0,0,0,0.4);
             display: none;
             z-index: 1000;
+            touch-action: pan-y;
         }
 
         .modal-content {
             position: absolute;
             bottom: 0;
             width: 100%;
-            height: 75vh;
+            height: 85vh;
             background: white;
             border-radius: 20px 20px 0 0;
             padding: 20px;
             overflow-y: auto;
+            overscroll-behavior: contain;
         }
 
         .form-group {
-            margin: 12px 0;
+            margin: 16px 0;
         }
 
-        .form-input {
+        .form-input, .form-select {
             width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
+            padding: 14px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
             font-size: 16px;
+            min-height: 48px;
+            background-color: #fff;
+        }
+
+        .form-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3e%3cpath d='M6 9l6 6 6-6'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 14px;
         }
 
         .location-info {
             background: #f8f9fa;
-            padding: 12px;
-            border-radius: 8px;
-            margin: 15px 0;
+            padding: 16px;
+            border-radius: 12px;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+
+        #crosshair {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            color: red;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        @media (min-width: 768px) {
+            body {
+                max-width: 500px;
+                margin: 0 auto;
+            }
+        }
+
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .control-bar {
+                padding-bottom: calc(10px + env(safe-area-inset-bottom));
+            }
+            .modal-content {
+                padding-bottom: env(safe-area-inset-bottom);
+            }
         }
     </style>
     <script>
@@ -102,31 +150,10 @@
     <script src="https://webapi.amap.com/maps?v=2.0&key=81af62ba5eb2df43dce2f2e564caa0ae"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tabulator/5.4.4/js/tabulator.min.js"></script>
-	 
-        .form-select {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            appearance: none;
-            background: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3e%3cpath d='M6 9l6 6 6-6'/%3e%3c/svg%3e") no-repeat right 12px center/12px;
-        }
-		 /* 新增定位指针样式 */
-        #crosshair {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 40px;
-            color: red;
-            pointer-events: none;
-            z-index: 999;
-        }
-    </style>
 </head>
 <body>
     <div id="mapContainer"></div>
-	<div id="crosshair">✚</div>
+    <div id="crosshair">✚</div>
     
     <div class="control-bar">
         <button class="mobile-btn" onclick="showForm()">📝 新建</button>
@@ -134,7 +161,6 @@
         <button class="mobile-btn" style="background:var(--secondary)" onclick="showData()">📋 数据</button>
     </div>
 
-    <!-- 输入表单 -->
     <div class="modal" id="inputModal">
         <div class="modal-content">
             <h3>房屋信息录入</h3>
@@ -150,7 +176,7 @@
             <div class="form-group">
                 <input type="tel" class="form-input" id="phone" placeholder="联系电话">
             </div>
-			 <div class="form-group">
+            <div class="form-group">
                 <select class="form-select" id="isOccupied" required>
                     <option value="是">有人居住</option>
                     <option value="否">无人居住</option>
@@ -173,8 +199,7 @@
         </div>
     </div>
 
-    <!-- 数据管理 -->
-     <div class="modal" id="dataModal">
+    <div class="modal" id="dataModal">
         <div class="modal-content">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h3>数据管理</h3>
@@ -182,52 +207,53 @@
             </div>
             <div style="display: flex; gap: 5px; margin-bottom: 15px;">
                 <button class="mobile-btn" style="background:var(--secondary)" onclick="exportExcel()">导出</button>
-                <label class="mobile-btn" style="background:var(--secondary)">
+                <label class="mobile-btn" style="background:var(--secondary; position: relative;">
                     导入
-                    <input type="file" id="fileInput" hidden accept=".xlsx">
+                    <input type="file" id="fileInput" hidden accept=".xlsx" onchange="handleFileSelect(event)">
                 </label>
             </div>
             <div id="dataTable" style="height: 60vh;"></div>
         </div>
     </div>
- 
+
     <script>
-        // 系统初始化
         let map, geolocation;
         let currentPosition = null;
         let houseData = JSON.parse(localStorage.getItem('houseData') || '[]');
+        let markers = [];
 
-        // 地图初始化
         function initMap() {
             map = new AMap.Map('mapContainer', {
                 zoom: 17,
-                center: [116.397428, 39.90923]
+                center: [116.397428, 39.90923],
+                touchZoomCenter: 1
             });
-			 // 实时更新中心点坐标
+
             function updateCenter() {
                 currentPosition = map.getCenter();
                 updateCoordinates(currentPosition);
             }
- 
-            // 监听地图移动事件
-            map.on('movestart', () => document.getElementById('crosshair').style.color = '#ff0000');
+
+            map.on('movestart', () => {
+                document.getElementById('crosshair').style.color = '#ff0000';
+            });
+            
             map.on('moveend', () => {
                 document.getElementById('crosshair').style.color = 'red';
                 updateCenter();
             });
+            
             map.on('zoomend', updateCenter);
- 
 
-            // 添加定位组件
             AMap.plugin(['AMap.Geolocation'], () => {
                 geolocation = new AMap.Geolocation({
                     showButton: false,
-                    zoomToAccuracy: true
+                    zoomToAccuracy: true,
+                    showMarker: false
                 });
                 map.addControl(geolocation);
             });
 
-            // 地图点击事件
             map.on('click', (e) => {
                 currentPosition = e.lnglat;
                 updateCoordinates(e.lnglat);
@@ -237,7 +263,6 @@
             updateMarkers();
         }
 
-        // 表单控制
         function showForm() {
             document.getElementById('inputModal').style.display = 'block';
             locateUser();
@@ -245,9 +270,12 @@
 
         function hideForm() {
             document.getElementById('inputModal').style.display = 'none';
+            document.getElementById('name').value = '';
+            document.getElementById('number').value = '';
+            document.getElementById('address').value = '';
+            document.getElementById('phone').value = '';
         }
 
-        // 定位功能
         function locateUser() {
             geolocation.getCurrentPosition((status, result) => {
                 if (status === 'complete') {
@@ -258,7 +286,6 @@
             });
         }
 
-        // 数据保存
         function saveData() {
             if (!validateForm()) return;
 
@@ -268,27 +295,27 @@
                 number: document.getElementById('number').value,
                 address: document.getElementById('address').value,
                 phone: document.getElementById('phone').value,
-				isOccupied: document.getElementById('isOccupied').value,
+                isOccupied: document.getElementById('isOccupied').value,
                 hasWaterSupply: document.getElementById('hasWaterSupply').value,
-                
-				lnglat: currentPosition
+                lnglat: currentPosition
             };
 
             houseData.push(newEntry);
             saveToLocal();
             updateMarkers();
             hideForm();
-			
         }
 
-        // 数据展示
         function showData() {
             document.getElementById('dataModal').style.display = 'block';
             dataTable.replaceData(houseData);
         }
 
-        // 文件处理
-        document.getElementById('fileInput').addEventListener('change', function(e) {
+        function hideDataModal() {
+            document.getElementById('dataModal').style.display = 'none';
+        }
+
+        function handleFileSelect(e) {
             const file = e.target.files[0];
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -303,36 +330,36 @@
                 dataTable.replaceData(houseData);
             };
             reader.readAsArrayBuffer(file);
-        });
-		 // 在JavaScript部分添加关闭函数
-        function hideDataModal() {
-            document.getElementById('dataModal').style.display = 'none';
         }
 
-        // 辅助功能
         function updateCoordinates(lnglat) {
             document.getElementById('coordinates').innerHTML = 
                 `经度：${lnglat.lng.toFixed(6)}<br>纬度：${lnglat.lat.toFixed(6)}`;
         }
 
         function addTempMarker(lnglat) {
-            map.clearMap();
-            new AMap.Marker({
+            clearMarkers();
+            markers.push(new AMap.Marker({
                 position: lnglat,
                 content: '<div style="background:var(--primary);color:white;padding:8px;border-radius:50%">📍</div>',
                 map: map
-            });
+            }));
             updateMarkers();
         }
 
         function updateMarkers() {
             houseData.forEach(item => {
-                new AMap.Marker({
+                markers.push(new AMap.Marker({
                     position: item.lnglat,
                     content: '<div style="background:var(--secondary);color:white;padding:6px;border-radius:4px">🏠</div>',
                     map: map
-                });
+                }));
             });
+        }
+
+        function clearMarkers() {
+            markers.forEach(marker => marker.setMap(null));
+            markers = [];
         }
 
         function validateForm() {
@@ -347,34 +374,43 @@
             localStorage.setItem('houseData', JSON.stringify(houseData));
         }
 
-        // 表格初始化
         const dataTable = new Tabulator("#dataTable", {
             data: houseData,
             layout: "fitColumns",
+            responsiveLayout: "collapse",
+            mobileCards: true,
             columns: [
                 {title:"户号", field:"number", width:100},
                 {title:"姓名", field:"name", width:120},
                 {title:"地址", field:"address", widthGrow:2},
-				{title:"是否居住", field:"isOccupied", width:100},
+                {title:"是否居住", field:"isOccupied", width:100},
                 {title:"供水情况", field:"hasWaterSupply", width:100},
                 {
-                     title:"定位", 
-                    formatter:() => '<button class="mobile-btn" style="padding:6px 12px">🗺️</button>',
+                    title:"操作", 
+                    formatter:() => '<button class="mobile-btn" style="padding:6px 12px">🗺️ 定位</button>',
                     cellClick:(e, cell) => {
                         const data = cell.getData();
-                        map.setCenter([data.lng, data.lat]);
+                        map.setCenter([data.lnglat.lng, data.lnglat.lat]);
                         map.setZoom(18);
-                        new AMap.Marker({
-                            position: new AMap.LngLat(data.lng, data.lat),
+                        clearMarkers();
+                        markers.push(new AMap.Marker({
+                            position: data.lnglat,
                             content: '<div style="background:red;color:white;padding:8px;border-radius:50%">📍</div>',
                             map: map
-                        });
+                        }));
                     }
                 }
             ]
         });
 
         function exportExcel() {
+            const formattedData = houseData.map(item => ({
+                ...item,
+                lng: item.lnglat.lng,
+                lat: item.lnglat.lat
+            }));
+            
+            dataTable.setData(formattedData);
             dataTable.download("xlsx", "房屋数据.xlsx", {
                 sheetName: "数据",
                 columns: [
@@ -389,7 +425,6 @@
             });
         }
 
-        // 启动系统
         window.onload = initMap;
     </script>
 </body>
