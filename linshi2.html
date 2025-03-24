@@ -207,7 +207,7 @@
             </div>
             <div style="display: flex; gap: 5px; margin-bottom: 15px;">
                 <button class="mobile-btn" style="background:var(--secondary)" onclick="exportExcel()">导出</button>
-                <label class="mobile-btn" style="background:var(--secondary; position: relative;">
+                <label class="mobile-btn" style="background:var(--secondary); position: relative;">
                     导入
                     <input type="file" id="fileInput" hidden accept=".xlsx" onchange="handleFileSelect(event)">
                 </label>
@@ -221,6 +221,7 @@
         let currentPosition = null;
         let houseData = JSON.parse(localStorage.getItem('houseData') || '[]');
         let markers = [];
+        let tempMarker = null;
 
         function initMap() {
             map = new AMap.Map('mapContainer', {
@@ -303,6 +304,7 @@
             houseData.push(newEntry);
             saveToLocal();
             updateMarkers();
+            if(tempMarker) tempMarker.setMap(null);
             hideForm();
         }
 
@@ -338,16 +340,21 @@
         }
 
         function addTempMarker(lnglat) {
-            clearMarkers();
-            markers.push(new AMap.Marker({
+            if(tempMarker) tempMarker.setMap(null);
+            tempMarker = new AMap.Marker({
                 position: lnglat,
                 content: '<div style="background:var(--primary);color:white;padding:8px;border-radius:50%">📍</div>',
                 map: map
-            }));
-            updateMarkers();
+            });
+        }
+
+        function clearMarkers() {
+            markers.forEach(marker => marker.setMap(null));
+            markers = [];
         }
 
         function updateMarkers() {
+            clearMarkers();
             houseData.forEach(item => {
                 markers.push(new AMap.Marker({
                     position: item.lnglat,
@@ -357,17 +364,16 @@
             });
         }
 
-        function clearMarkers() {
-            markers.forEach(marker => marker.setMap(null));
-            markers = [];
-        }
-
         function validateForm() {
             if (!currentPosition) {
                 alert('请先选择位置');
                 return false;
             }
-            return document.getElementById('name').reportValidity();
+            if (!document.getElementById('name').value.trim()) {
+                alert('请输入户主姓名');
+                return false;
+            }
+            return true;
         }
 
         function saveToLocal() {
