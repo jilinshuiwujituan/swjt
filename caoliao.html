@@ -100,15 +100,14 @@
         // 初始化地图
         function initMap() {
             map = new AMap.Map('mapContainer', {
-                zoom: 17,  // 提高初始缩放级别
-                resizeEnable: true,
-                doubleClickZoom: false
+                zoom: 17,
+                resizeEnable: true
             });
             loadLocalData();
             getLocation();
         }
 
-        // 获取当前位置（优化版）
+        // 优化后的定位函数
         function getLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(position => {
@@ -130,18 +129,18 @@
                     document.getElementById('lat').value = currentPosition.lat.toFixed(6);
 
                 }, error => {
-                    alert("获取位置失败：" + error.message);
+                    alert("定位失败：" + error.message);
                 }, {
-                    enableHighAccuracy: true,  // 启用高精度模式
-                    timeout: 10000,          // 延长超时时间
+                    enableHighAccuracy: true,  // 高精度模式
+                    timeout: 10000,          // 10秒超时
                     maximumAge: 0            // 禁用缓存
                 });
             } else {
-                alert("您的浏览器不支持地理定位");
+                alert("浏览器不支持地理定位");
             }
         }
 
-        // 其余原有功能保持不变
+        // 以下原有功能保持不变
         function handleSubmit(event) {
             event.preventDefault();
             const formData = {
@@ -235,6 +234,7 @@
             panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
         }
 
+        // 初始化
         window.onload = initMap;
     </script>
 </body>
