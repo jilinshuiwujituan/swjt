@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>本地化地图标注系统</title>
+    <title>精准地图标注系统</title>
     <style>
         #mapContainer { height: 70vh; width: 100%; }
         .control-panel {
@@ -64,6 +64,35 @@
 
     <script src="https://webapi.amap.com/maps?v=2.0&key=81af62ba5eb2df43dce2f2e564caa0ae"></script>
     <script>
+        // 坐标系转换函数（WGS84转GCJ02）
+        function transformWGS2GCJ(wgsLng, wgsLat) {
+            const a = 6378245.0;
+            const ee = 0.00669342162296594323;
+            
+            if (wgsLng < 72.004 || wgsLng > 137.8347 || wgsLat < 0.8293 || wgsLat > 55.8271) {
+                return [wgsLng, wgsLat];
+            }
+
+            let dLat = -100.0 + 2.0 * wgsLng + 3.0 * wgsLat + 0.2 * wgsLat * wgsLat;
+            dLat += (20.0 * Math.sin(6.0 * wgsLng * Math.PI) + 20.0 * Math.sin(2.0 * wgsLng * Math.PI)) * 2.0 / 3.0;
+            dLat += (20.0 * Math.sin(wgsLat * Math.PI) + 40.0 * Math.sin(wgsLat / 3.0 * Math.PI)) * 2.0 / 3.0;
+            dLat += (160.0 * Math.sin(wgsLat / 12.0 * Math.PI) + 320 * Math.sin(wgsLat * Math.PI / 30.0)) * 2.0 / 3.0;
+
+            let dLng = 300.0 + wgsLng + 2.0 * wgsLat + 0.1 * wgsLng * wgsLng;
+            dLng += (20.0 * Math.sin(6.0 * wgsLng * Math.PI) + 20.0 * Math.sin(2.0 * wgsLng * Math.PI)) * 2.0 / 3.0;
+            dLng += (20.0 * Math.sin(wgsLng * Math.PI) + 40.0 * Math.sin(wgsLng / 3.0 * Math.PI)) * 2.0 / 3.0;
+            dLng += (150.0 * Math.sin(wgsLng / 12.0 * Math.PI) + 300.0 * Math.sin(wgsLng / 30.0 * Math.PI)) * 2.0 / 3.0;
+
+            const radLat = wgsLat / 180.0 * Math.PI;
+            const magic = 1 - ee * Math.pow(Math.sin(radLat), 2);
+            const sqrtMagic = Math.sqrt(magic);
+            
+            dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * Math.PI);
+            dLng = (dLng * 180.0) / (a / sqrtMagic * Math.cos(radLat) * Math.PI);
+            
+            return [wgsLng + dLng, wgsLat + dLat];
+        }
+
         let map;
         let markers = [];
         let currentPosition = null;
@@ -71,33 +100,48 @@
         // 初始化地图
         function initMap() {
             map = new AMap.Map('mapContainer', {
-                zoom: 15,
-                resizeEnable: true
+                zoom: 17,  // 提高初始缩放级别
+                resizeEnable: true,
+                doubleClickZoom: false
             });
             loadLocalData();
             getLocation();
         }
 
-        // 获取当前位置
+        // 获取当前位置（优化版）
         function getLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(position => {
+                    // 坐标转换
+                    const [gcjLng, gcjLat] = transformWGS2GCJ(
+                        position.coords.longitude,
+                        position.coords.latitude
+                    );
+                    
                     currentPosition = {
-                        lng: position.coords.longitude,
-                        lat: position.coords.latitude
+                        lng: gcjLng,
+                        lat: gcjLat,
+                        accuracy: position.coords.accuracy
                     };
+
+                    // 更新地图和表单
                     map.setCenter([currentPosition.lng, currentPosition.lat]);
                     document.getElementById('lng').value = currentPosition.lng.toFixed(6);
                     document.getElementById('lat').value = currentPosition.lat.toFixed(6);
+
                 }, error => {
                     alert("获取位置失败：" + error.message);
+                }, {
+                    enableHighAccuracy: true,  // 启用高精度模式
+                    timeout: 10000,          // 延长超时时间
+                    maximumAge: 0            // 禁用缓存
                 });
             } else {
                 alert("您的浏览器不支持地理定位");
             }
         }
 
-        // 处理表单提交
+        // 其余原有功能保持不变
         function handleSubmit(event) {
             event.preventDefault();
             const formData = {
@@ -112,7 +156,6 @@
             event.target.reset();
         }
 
-        // 创建标记
         function createMarker(data) {
             const marker = new AMap.Marker({
                 position: [data.lng, data.lat],
@@ -187,13 +230,11 @@
             reader.readAsText(file);
         }
 
-        // 界面控制
         function toggleData() {
             const panel = document.getElementById('dataPanel');
             panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
         }
 
-        // 初始化
         window.onload = initMap;
     </script>
 </body>
