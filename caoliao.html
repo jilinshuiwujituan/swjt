@@ -1,0 +1,158 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高德地图-草料表单联动系统</title>
+    <style>
+        #mapContainer {
+            width: 100%;
+            height: 70vh;
+        }
+        .control-panel {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: white;
+            padding: 15px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #1890ff;
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            margin: 5px;
+            width: calc(100% - 10px);
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="mapContainer"></div>
+    
+    <div class="control-panel">
+        <button class="btn" onclick="openQRForm()" id="openFormBtn">打开草料表单</button>
+        <button class="btn" onclick="toggleImport()">导入数据文件</button>
+        <div id="importPanel" class="hidden">
+            <input type="file" id="fileInput" accept=".csv">
+            <button class="btn" onclick="processFile()">开始导入</button>
+        </div>
+    </div>
+
+    <!-- 高德地图API -->
+    <script src="https://webapi.amap.com/maps?v=2.0&key=81af62ba5eb2df43dce2f2e564caa0ae"></script>
+    <script>
+        let map;
+        let currentPosition = null;
+        const markers = [];
+        
+        // 初始化地图
+        function initMap() {
+            map = new AMap.Map('mapContainer', {
+                zoom: 13,
+                resizeEnable: true
+            });
+            
+            // 自动定位
+            AMap.plugin('AMap.Geolocation', () => {
+                const geolocation = new AMap.Geolocation({
+                    enableHighAccuracy: true,
+                    timeout: 10000
+                });
+                
+                geolocation.getCurrentPosition((status, result) => {
+                    if (status === 'complete') {
+                        currentPosition = {
+                            lng: result.position.getLng(),
+                            lat: result.position.getLat()
+                        };
+                        map.setCenter([currentPosition.lng, currentPosition.lat]);
+                        document.getElementById('openFormBtn').disabled = false;
+                    }
+                });
+            });
+        }
+
+        // 打开草料表单（需替换为实际表单地址）
+        function openQRForm() {
+            if (!currentPosition) return;
+            
+            // 草料表单URL模板（需自行替换）
+            const formURL = `http://qr61.cn/o1hiwH/qJn4Dq3{currentPosition.lng}&lat=${currentPosition.lat}`;
+            
+            // 新窗口打开表单
+            window.open(formURL, '_blank', 'location=yes');
+        }
+
+        // 处理数据文件
+        function processFile() {
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                parseCSVData(e.target.result).forEach(data => {
+                    createMarker({
+                        lng: parseFloat(data.lng),
+                        lat: parseFloat(data.lat),
+                        info: data.info
+                    });
+                });
+                map.setFitView();
+            };
+            reader.readAsText(file);
+        }
+
+        // CSV解析函数（适配草料表单导出格式）
+        function parseCSVData(csv) {
+            const lines = csv.split('\n');
+            const headers = lines[0].split(',').map(h => h.trim());
+            
+            return lines.slice(1).map(line => {
+                const values = line.split(',');
+                return headers.reduce((obj, header, index) => {
+                    obj[header] = values[index]?.trim() || '';
+                    return obj;
+                }, {});
+            });
+        }
+
+        // 创建地图标记
+        function createMarker(data) {
+            const marker = new AMap.Marker({
+                position: [data.lng, data.lat],
+                map: map,
+                content: '<div style="background:red;padding:5px;border-radius:50%">📍</div>'
+            });
+
+            // 信息窗口配置
+            const infoWindow = new AMap.InfoWindow({
+                content: `<div class="info-window">
+                            <h3>${data['标题'] || '未命名标记'}</h3>
+                            <p>${data['详细描述'] || '暂无描述'}</p>
+                            <p>坐标：${data.lng.toFixed(6)}, ${data.lat.toFixed(6)}</p>
+                            <small>提交时间：${data['提交时间'] || '未知'}</small>
+                          </div>`
+            });
+
+            marker.on('click', () => {
+                infoWindow.open(map, marker.getPosition());
+            });
+
+            markers.push(marker);
+        }
+
+        // 面板控制
+        function toggleImport() {
+            document.getElementById('importPanel').classList.toggle('hidden');
+        }
+
+        // 初始化
+        window.onload = initMap;
+    </script>
+</body>
+</html>
